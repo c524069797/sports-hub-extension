@@ -20,7 +20,7 @@ function formatPlayer(player: PlayerStat): string {
 }
 
 export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, onToggleFavorite, onClick }: MatchCardProps) {
-  const { locale, t } = useI18n()
+  const { locale, t, translatePlayerName } = useI18n()
   const statusColor = getStatusColor(match.status)
   const isLive = match.status === 'live'
 
@@ -152,12 +152,16 @@ export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, onTog
           {match.extra.halfTimeScore && <span className="match-card__extra">{match.extra.halfTimeScore}</span>}
           {match.extra.homeLeader && (
             <span className="match-card__extra match-card__extra--leader">
-              {homeTeamName}: {match.extra.homeLeader}
+              {homeTeamName}: {match.extra.homeLeaderName
+                ? `${translatePlayerName(String(match.extra.homeLeaderName), match.sportType)} ${match.extra.homeLeaderStats}`
+                : match.extra.homeLeader}
             </span>
           )}
           {match.extra.awayLeader && (
             <span className="match-card__extra match-card__extra--leader">
-              {awayTeamName}: {match.extra.awayLeader}
+              {awayTeamName}: {match.extra.awayLeaderName
+                ? `${translatePlayerName(String(match.extra.awayLeaderName), match.sportType)} ${match.extra.awayLeaderStats}`
+                : match.extra.awayLeader}
             </span>
           )}
         </div>

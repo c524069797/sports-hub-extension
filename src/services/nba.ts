@@ -143,10 +143,14 @@ export async function fetchNBAMatches(): Promise<Match[]> {
         const extra: Record<string, string> = {}
         if (game.gameLeaders?.homeLeaders) {
           const l = game.gameLeaders.homeLeaders
+          extra.homeLeaderName = l.name
+          extra.homeLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
           extra.homeLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
         }
         if (game.gameLeaders?.awayLeaders) {
           const l = game.gameLeaders.awayLeaders
+          extra.awayLeaderName = l.name
+          extra.awayLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
           extra.awayLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
         }
         extra.statusText = game.gameStatusText

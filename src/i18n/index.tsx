@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { zhTranslations } from './zh'
 import { enTranslations } from './en'
+import { NBA_PLAYER_NAMES_CN, FOOTBALL_PLAYER_NAMES_CN } from './player-names'
+import type { SportType } from '../types'
 
 export type Locale = 'zh' | 'en'
 
@@ -58,7 +60,24 @@ export function useI18n() {
   if (!context) {
     throw new Error('useI18n must be used within I18nProvider')
   }
-  return context
+
+  const { locale } = context
+
+  // 翻译球员/选手名称
+  const translatePlayerName = useCallback((name: string, sportType: SportType): string => {
+    if (locale !== 'zh') return name
+
+    if (sportType === 'nba') {
+      return NBA_PLAYER_NAMES_CN[name] ?? name
+    }
+    if (sportType === 'football') {
+      return FOOTBALL_PLAYER_NAMES_CN[name] ?? name
+    }
+    // 电竞选手通常用 ID，不需要翻译
+    return name
+  }, [locale])
+
+  return { ...context, translatePlayerName }
 }
 
 // 日期格式化 hook

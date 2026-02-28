@@ -21,7 +21,7 @@ export default function MatchDetail({ match, onBack }: MatchDetailProps) {
   const [isSquadData, setIsSquadData] = useState(false)
   const hasAttemptedLoad = useRef(false)
   const { addFavorite, removeFavorite, isFavorite } = useFavorites()
-  const { locale, t } = useI18n()
+  const { locale, t, translatePlayerName } = useI18n()
   const statusColor = getStatusColor(match.status)
   const isLive = match.status === 'live'
 
@@ -157,7 +157,7 @@ export default function MatchDetail({ match, onBack }: MatchDetailProps) {
         id: playerId,
         type: 'player',
         sportType: match.sportType,
-        name: player.name,
+        name: translatePlayerName(player.name, match.sportType),
         extra: {
           team: player.team,
           position: player.position ?? '',
@@ -308,7 +308,7 @@ export default function MatchDetail({ match, onBack }: MatchDetailProps) {
                     return (
                       <tr key={player.id}>
                         <td className="match-detail__td-name">
-                          <span className="match-detail__player-name">{player.name}</span>
+                          <span className="match-detail__player-name">{translatePlayerName(player.name, match.sportType)}</span>
                           {player.position && (
                             <span className="match-detail__player-pos">{player.position}</span>
                           )}
