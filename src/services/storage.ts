@@ -1,11 +1,13 @@
 import type { StorageData, FavoriteItem, AppSettings, Match, SportType } from '../types'
 import { DEFAULT_SETTINGS } from '../types'
+import type { FinanceWatchItem } from '../types/finance'
 
 const STORAGE_KEYS = {
   FAVORITES: 'favorites',
   SETTINGS: 'settings',
   CACHED_MATCHES: 'cachedMatches',
   LAST_FETCH_TIME: 'lastFetchTime',
+  FINANCE_WATCHLIST: 'financeWatchlist',
 } as const
 
 function getStorage(): typeof chrome.storage.local {
@@ -133,4 +135,28 @@ export async function shouldRefresh(sportType: SportType, intervalMinutes: numbe
   if (lastFetch === 0) return true
   const elapsed = Date.now() - lastFetch
   return elapsed > intervalMinutes * 60 * 1000
+}
+
+// ========== Finance Watchlist ==========
+export async function getFinanceWatchlist(): Promise<FinanceWatchItem[]> {
+  const storage = getStorage()
+  const result = await storage.get(STORAGE_KEYS.FINANCE_WATCHLIST)
+  return (result as Record<string, unknown>)[STORAGE_KEYS.FINANCE_WATCHLIST] as FinanceWatchItem[] ?? []
+}
+
+export async function addFinanceWatch(item: FinanceWatchItem): Promise<FinanceWatchItem[]> {
+  const list = await getFinanceWatchlist()
+  const exists = list.some((w) => w.id === item.id)
+  if (exists) return list
+
+  const updated = [...list, item]
+  await getStorage().set({ [STORAGE_KEYS.FINANCE_WATCHLIST]: updated })
+  return updated
+}
+
+export async function removeFinanceWatch(id: string): Promise<FinanceWatchItem[]> {
+  const list = await getFinanceWatchlist()
+  const updated = list.filter((w) => w.id !== id)
+  await getStorage().set({ [STORAGE_KEYS.FINANCE_WATCHLIST]: updated })
+  return updated
 }

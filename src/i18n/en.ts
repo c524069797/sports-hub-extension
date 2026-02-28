@@ -27,6 +27,7 @@ export const enTranslations = {
     football: 'Football',
     esports: 'Esports',
     favorites: 'Favorites',
+    finance: 'Finance',
     settings: 'Settings',
   },
 
@@ -92,8 +93,29 @@ export const enTranslations = {
     languageZh: '中文',
     languageEn: 'English',
     version: 'Sports Hub v1.0.0',
-    description: 'NBA / Football / Esports Data Hub',
+    description: 'NBA / Football / Esports + Finance Hub',
     minutes: ' min',
+  },
+
+  // Finance module
+  finance: {
+    title: '💰 Finance',
+    search: 'Search',
+    searchPlaceholder: 'Enter symbol/name/address',
+    searchBtn: 'Search',
+    refresh: 'Refresh',
+    goldSilver: 'Precious Metals',
+    watchlist: 'My Watchlist',
+    add: '+ Watch',
+    added: 'Added',
+    remove: 'Remove',
+    emptyHint: 'Click 🔍 to search and watch assets',
+    crypto: 'Crypto',
+    metals: 'Metals',
+    stockCN: 'CN Stock',
+    stockUS: 'US Stock',
+    fund: 'Fund',
+    all: 'All',
   },
 
   // Sport types

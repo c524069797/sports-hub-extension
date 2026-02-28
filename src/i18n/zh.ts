@@ -27,6 +27,7 @@ export const zhTranslations = {
     football: '足球',
     esports: '电竞',
     favorites: '关注',
+    finance: '金融',
     settings: '设置',
   },
 
@@ -92,8 +93,29 @@ export const zhTranslations = {
     languageZh: '中文',
     languageEn: 'English',
     version: 'Sports Hub v1.0.0',
-    description: 'NBA / 足球 / 电竞赛事数据聚合',
+    description: 'NBA / 足球 / 电竞赛事 + 金融行情',
     minutes: '分钟',
+  },
+
+  // 金融模块
+  finance: {
+    title: '💰 金融行情',
+    search: '搜索',
+    searchPlaceholder: '输入代码/名称/地址',
+    searchBtn: '搜索',
+    refresh: '刷新',
+    goldSilver: '贵金属',
+    watchlist: '我的关注',
+    add: '+ 关注',
+    added: '已添加',
+    remove: '取消关注',
+    emptyHint: '点击 🔍 搜索并添加关注资产',
+    crypto: '加密货币',
+    metals: '贵金属',
+    stockCN: 'A股',
+    stockUS: '美股',
+    fund: '基金',
+    all: '全部',
   },
 
   // 运动类型

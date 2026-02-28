@@ -6,10 +6,11 @@ import NBATab from '../components/NBATab'
 import FootballTab from '../components/FootballTab'
 import EsportsTab from '../components/EsportsTab'
 import FavoritesPanel from '../components/FavoritesPanel'
+import FinanceTab from '../components/FinanceTab'
 import SettingsPanel from '../components/SettingsPanel'
 import MatchDetail from '../components/MatchDetail'
 
-type ViewType = SportType | 'favorites' | 'settings'
+type ViewType = SportType | 'favorites' | 'finance' | 'settings'
 
 export default function App() {
   const { settings } = useSettings()
@@ -30,6 +31,7 @@ export default function App() {
     { key: 'nba', label: t.nav.nba, icon: '🏀' },
     { key: 'football', label: t.nav.football, icon: '⚽' },
     { key: 'esports', label: t.nav.esports, icon: '🎮' },
+    { key: 'finance', label: t.nav.finance, icon: '💰' },
     { key: 'settings', label: t.nav.settings, icon: '⚙' },
   ]
 
@@ -80,6 +82,7 @@ export default function App() {
         {activeView === 'football' && <FootballTab onMatchClick={handleMatchClick} />}
         {activeView === 'esports' && <EsportsTab onMatchClick={handleMatchClick} />}
         {activeView === 'favorites' && <FavoritesPanel onMatchClick={handleMatchClick} />}
+        {activeView === 'finance' && <FinanceTab />}
         {activeView === 'settings' && <SettingsPanel />}
       </main>
     </div>

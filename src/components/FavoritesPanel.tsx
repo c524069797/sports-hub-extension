@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import type { FavoriteItem, SportType, Match } from '../types'
 import { useFavorites } from '../hooks/useData'
 import { useI18n } from '../i18n'
 import { translateTeamName } from '../i18n/team-names'
 import { getStatusText, getStatusColor, formatMatchTime } from '../utils/format'
+import { getCachedMatches } from '../services/storage'
 
 interface FavoritesPanelProps {
   onMatchClick?: (match: Match) => void
@@ -11,6 +13,7 @@ interface FavoritesPanelProps {
 export default function FavoritesPanel({ onMatchClick }: FavoritesPanelProps) {
   const { favorites, loading, removeFavorite } = useFavorites()
   const { locale, t } = useI18n()
+  const [teamMatches, setTeamMatches] = useState<Match[]>([])
 
   const SPORT_LABELS: Record<SportType, string> = {
     nba: t.sportTypes.nba,
@@ -29,6 +32,41 @@ export default function FavoritesPanel({ onMatchClick }: FavoritesPanelProps) {
     player: locale === 'zh' ? '球员/选手' : 'Player',
     match: locale === 'zh' ? '比赛' : 'Match',
   }
+
+  // 获取关注球队的今日比赛
+  useEffect(() => {
+    const fetchTeamMatches = async () => {
+      const teamFavs = favorites.filter((f) => f.type === 'team')
+      if (teamFavs.length === 0) {
+        setTeamMatches([])
+        return
+      }
+
+      const sportTypes = [...new Set(teamFavs.map((f) => f.sportType))] as SportType[]
+      const teamNames = new Set(teamFavs.map((f) => f.name.toLowerCase()))
+
+      const allMatches: Match[] = []
+      for (const sport of sportTypes) {
+        const cached = await getCachedMatches(sport)
+        const matched = cached.filter(
+          (m) =>
+            teamNames.has(m.homeTeam.toLowerCase()) ||
+            teamNames.has(m.awayTeam.toLowerCase())
+        )
+        allMatches.push(...matched)
+      }
+
+      // 去重（避免同一比赛两队都被关注时重复）
+      const unique = allMatches.filter(
+        (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i
+      )
+      setTeamMatches(unique)
+    }
+
+    if (!loading) {
+      fetchTeamMatches()
+    }
+  }, [favorites, loading])
 
   if (loading) {
     return (
@@ -75,6 +113,59 @@ export default function FavoritesPanel({ onMatchClick }: FavoritesPanelProps) {
 
   return (
     <div className="favorites-panel">
+      {/* 关注球队的今日比赛 */}
+      {teamMatches.length > 0 && (
+        <div className="favorites-panel__group">
+          <h3 className="favorites-panel__group-title">
+            {locale === 'zh' ? '🏟 关注球队的今日比赛' : '🏟 Today\'s Matches for Favorite Teams'}
+          </h3>
+          <div className="favorites-panel__matches">
+            {teamMatches.map((match) => {
+              const sportIcon = SPORT_ICONS[match.sportType]
+              const statusColor = getStatusColor(match.status)
+
+              return (
+                <div
+                  key={`team-match-${match.id}`}
+                  className="favorites-panel__match-card"
+                  onClick={() => onMatchClick?.(match)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="favorites-panel__match-header">
+                    <span className="favorites-panel__match-sport">{sportIcon}</span>
+                    <span className="favorites-panel__match-league">
+                      {SPORT_LABELS[match.sportType]}
+                      {match.league ? ` · ${match.league}` : ''}
+                    </span>
+                    <span className="favorites-panel__match-status" style={{ color: statusColor }}>
+                      {getStatusText(match, locale)}
+                    </span>
+                  </div>
+                  <div className="favorites-panel__match-body">
+                    <span className="favorites-panel__match-team">
+                      {translateTeamName(match.homeTeam, locale, match.sportType)}
+                    </span>
+                    <span className="favorites-panel__match-score">
+                      {match.status === 'upcoming'
+                        ? 'vs'
+                        : `${match.homeScore ?? 0} : ${match.awayScore ?? 0}`}
+                    </span>
+                    <span className="favorites-panel__match-team">
+                      {translateTeamName(match.awayTeam, locale, match.sportType)}
+                    </span>
+                  </div>
+                  {match.startTime && (
+                    <div className="favorites-panel__match-time">
+                      {formatMatchTime(match.startTime, locale)}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 关注的比赛 - 置顶显示 */}
       {favoriteMatches.length > 0 && (
         <div className="favorites-panel__group">

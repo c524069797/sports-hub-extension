@@ -1111,3 +1111,254 @@ body {
   color: white;
   border-color: var(--accent);
 }
+
+/* ========== Finance Tab ========== */
+.finance-tab {
+  padding: 8px 12px;
+}
+
+.finance-tab__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+.finance-tab__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.finance-tab__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.finance-tab__actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Search */
+.finance-tab__search {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.finance-tab__search-row {
+  display: flex;
+  gap: 4px;
+}
+
+.finance-tab__search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.finance-tab__search-input:focus {
+  border-color: var(--accent);
+}
+
+.finance-tab__search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.finance-tab__search-type {
+  width: 80px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.finance-tab__search-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.finance-tab__search-results {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.finance-tab__search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.finance-tab__search-info {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.finance-tab__search-symbol {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.finance-tab__search-name {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finance-tab__add-btn {
+  padding: 2px 10px;
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+/* Filter */
+.finance-tab__filter {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0 8px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+/* Section */
+.finance-tab__section {
+  margin-bottom: 12px;
+}
+
+.finance-tab__section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.finance-tab__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Card */
+.finance-tab__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s;
+}
+
+.finance-tab__card:hover {
+  border-color: var(--accent);
+}
+
+.finance-tab__card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.finance-tab__card-symbol {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.finance-tab__card-name {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.finance-tab__card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.finance-tab__card-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.finance-tab__card-change {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 56px;
+  text-align: right;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.finance-tab__card-change--up {
+  color: var(--success);
+}
+
+.finance-tab__card-change--down {
+  color: var(--danger);
+}
+
+.finance-tab__remove-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 50%;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.finance-tab__remove-btn:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Empty state */
+.finance-tab__empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}

@@ -4,7 +4,7 @@
   "firefox:manifest_version": 2,
   "version": "1.0.0",
   "name": "Sports Hub - 体育赛事中心",
-  "description": "NBA、足球、电竞赛事数据聚合，关注球队/选手，实时比赛追踪",
+  "description": "NBA、足球、电竞赛事数据聚合 + 金融行情，关注球队/选手，实时追踪",
   "icons": {
     "16": "images/icon-16.png",
     "32": "images/icon-32.png",
@@ -46,7 +46,10 @@
     "https://gamma-api.polymarket.com/*",
     "https://polymarket.com/*",
     "https://www.thesportsdb.com/*",
-    "https://api.pandascore.co/*"
+    "https://api.pandascore.co/*",
+    "https://api.coingecko.com/*",
+    "https://hq.sinajs.cn/*",
+    "https://fundgz.1234567.com.cn/*"
   ],
   "firefox:permissions": [
     "storage",
@@ -58,7 +61,10 @@
     "https://gamma-api.polymarket.com/*",
     "https://polymarket.com/*",
     "https://www.thesportsdb.com/*",
-    "https://api.pandascore.co/*"
+    "https://api.pandascore.co/*",
+    "https://api.coingecko.com/*",
+    "https://hq.sinajs.cn/*",
+    "https://fundgz.1234567.com.cn/*"
   ],
   "background": {
     "chromium:service_worker": "background.ts",
