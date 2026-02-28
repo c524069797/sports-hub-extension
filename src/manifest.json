@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
+  "version": "1.0.0",
+  "name": "Sports Hub - 体育赛事中心",
+  "description": "NBA、足球、电竞赛事数据聚合，关注球队/选手，实时比赛追踪",
+  "icons": {
+    "16": "images/icon-16.png",
+    "32": "images/icon-32.png",
+    "48": "images/icon-48.png",
+    "64": "images/icon-64.png",
+    "128": "images/icon-128.png"
+  },
+  "chromium:action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "32": "images/icon-32.png",
+      "48": "images/icon-48.png",
+      "64": "images/icon-64.png",
+      "128": "images/icon-128.png"
+    },
+    "default_title": "Sports Hub"
+  },
+  "firefox:browser_action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "32": "images/icon-32.png",
+      "48": "images/icon-48.png",
+      "64": "images/icon-64.png",
+      "128": "images/icon-128.png"
+    },
+    "default_title": "Sports Hub"
+  },
+  "chromium:permissions": [
+    "storage",
+    "alarms"
+  ],
+  "chromium:host_permissions": [
+    "https://cdn.nba.com/*",
+    "https://nba.com/*",
+    "https://stats.nba.com/*",
+    "https://site.api.espn.com/*",
+    "https://gamma-api.polymarket.com/*",
+    "https://polymarket.com/*",
+    "https://www.thesportsdb.com/*",
+    "https://api.pandascore.co/*"
+  ],
+  "firefox:permissions": [
+    "storage",
+    "alarms",
+    "https://cdn.nba.com/*",
+    "https://nba.com/*",
+    "https://stats.nba.com/*",
+    "https://site.api.espn.com/*",
+    "https://gamma-api.polymarket.com/*",
+    "https://polymarket.com/*",
+    "https://www.thesportsdb.com/*",
+    "https://api.pandascore.co/*"
+  ],
+  "background": {
+    "chromium:service_worker": "background.ts",
+    "firefox:scripts": [
+      "background.ts"
+    ]
+  },
+  "author": "chenzilong"
+}
