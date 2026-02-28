@@ -14,7 +14,7 @@ type ViewType = SportType | 'favorites' | 'settings'
 export default function App() {
   const { settings } = useSettings()
   const { t } = useI18n()
-  const [activeView, setActiveView] = useState<ViewType>('nba')
+  const [activeView, setActiveView] = useState<ViewType>('favorites')
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
 
   useEffect(() => {
@@ -26,10 +26,10 @@ export default function App() {
   const theme = settings?.theme ?? 'dark'
 
   const TABS: Array<{ key: ViewType; label: string; icon: string }> = [
+    { key: 'favorites', label: t.nav.favorites, icon: '★' },
     { key: 'nba', label: t.nav.nba, icon: '🏀' },
     { key: 'football', label: t.nav.football, icon: '⚽' },
     { key: 'esports', label: t.nav.esports, icon: '🎮' },
-    { key: 'favorites', label: t.nav.favorites, icon: '★' },
     { key: 'settings', label: t.nav.settings, icon: '⚙' },
   ]
 
@@ -79,7 +79,7 @@ export default function App() {
         {activeView === 'nba' && <NBATab onMatchClick={handleMatchClick} />}
         {activeView === 'football' && <FootballTab onMatchClick={handleMatchClick} />}
         {activeView === 'esports' && <EsportsTab onMatchClick={handleMatchClick} />}
-        {activeView === 'favorites' && <FavoritesPanel />}
+        {activeView === 'favorites' && <FavoritesPanel onMatchClick={handleMatchClick} />}
         {activeView === 'settings' && <SettingsPanel />}
       </main>
     </div>

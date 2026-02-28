@@ -7,7 +7,9 @@ interface MatchCardProps {
   match: Match
   isFavoriteHome?: boolean
   isFavoriteAway?: boolean
+  isFavoriteMatch?: boolean
   onToggleFavorite?: (teamName: string, type: 'home' | 'away') => void
+  onToggleFavoriteMatch?: (match: Match) => void
   onClick?: () => void
 }
 
@@ -19,7 +21,7 @@ function formatPlayer(player: PlayerStat): string {
   return player.name
 }
 
-export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, onToggleFavorite, onClick }: MatchCardProps) {
+export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, isFavoriteMatch, onToggleFavorite, onToggleFavoriteMatch, onClick }: MatchCardProps) {
   const { locale, t, translatePlayerName } = useI18n()
   const statusColor = getStatusColor(match.status)
   const isLive = match.status === 'live'
@@ -57,6 +59,15 @@ export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, onTog
           {isLive && <span className="match-card__live-dot" />}
           {getStatusText(match, locale)}
         </span>
+        <button
+          className={`match-card__fav-match-btn ${isFavoriteMatch ? 'match-card__fav-match-btn--active' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleFavoriteMatch?.(match) }}
+          title={isFavoriteMatch
+            ? (locale === 'zh' ? '取消关注比赛' : 'Unfavorite match')
+            : (locale === 'zh' ? '关注比赛' : 'Favorite match')}
+        >
+          {isFavoriteMatch ? '♥' : '♡'}
+        </button>
       </div>
 
       <div className="match-card__body">

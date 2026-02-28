@@ -126,11 +126,12 @@ export interface EsportsMatch extends Match {
 // ========== 关注/收藏类型 ==========
 export interface FavoriteItem {
   id: string
-  type: 'team' | 'player'
+  type: 'team' | 'player' | 'match'
   sportType: SportType
   name: string
   logo?: string
   extra?: Record<string, string | number | undefined>
+  matchData?: Match
 }
 
 // ========== 存储类型 ==========

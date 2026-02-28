@@ -981,6 +981,108 @@ body {
   letter-spacing: -0.3px;
 }
 
+/* Favorite match card */
+.favorites-panel__matches {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.favorites-panel__match-card {
+  background: var(--card-bg, #1e293b);
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #334155);
+  transition: border-color 0.15s;
+}
+
+.favorites-panel__match-card:hover {
+  border-color: var(--accent, #3b82f6);
+}
+
+.favorites-panel__match-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.favorites-panel__match-sport {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.favorites-panel__match-league {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorites-panel__match-status {
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.favorites-panel__match-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.favorites-panel__match-team {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorites-panel__match-score {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent, #3b82f6);
+  flex-shrink: 0;
+  min-width: 50px;
+  text-align: center;
+}
+
+.favorites-panel__match-time {
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* Match favorite button on MatchCard */
+.match-card__fav-match-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.match-card__fav-match-btn:hover {
+  color: var(--danger, #ef4444);
+}
+
+.match-card__fav-match-btn--active {
+  color: var(--danger, #ef4444);
+}
+
 /* ========== Language Switcher ========== */
 .language-switcher {
   display: flex;

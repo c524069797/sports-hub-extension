@@ -34,6 +34,32 @@ export default function MatchList({ matches, loading, error, sportType, onRefres
     }
   }
 
+  const handleToggleMatchFavorite = (match: Match) => {
+    const matchFavId = `${sportType}-match-${match.id}`
+    if (isFavorite(matchFavId, sportType)) {
+      removeFavorite(matchFavId, sportType)
+    } else {
+      addFavorite({
+        id: matchFavId,
+        type: 'match',
+        sportType,
+        name: `${match.homeTeam} vs ${match.awayTeam}`,
+        extra: {
+          league: match.league,
+          status: match.status,
+          homeScore: match.homeScore,
+          awayScore: match.awayScore,
+          startTime: match.startTime,
+        },
+        matchData: {
+          ...match,
+          homePlayers: undefined,
+          awayPlayers: undefined,
+        },
+      })
+    }
+  }
+
   if (loading) {
     return (
       <div className="match-list__loading">
@@ -103,7 +129,9 @@ export default function MatchList({ matches, loading, error, sportType, onRefres
               match={match}
               isFavoriteHome={isFavorite(`${sportType}-team-${match.homeTeam}`, sportType)}
               isFavoriteAway={isFavorite(`${sportType}-team-${match.awayTeam}`, sportType)}
+              isFavoriteMatch={isFavorite(`${sportType}-match-${match.id}`, sportType)}
               onToggleFavorite={(teamName, side) => handleToggleFavorite(match, teamName, side)}
+              onToggleFavoriteMatch={handleToggleMatchFavorite}
               onClick={() => onMatchClick?.(match)}
             />
           ))}
@@ -119,7 +147,9 @@ export default function MatchList({ matches, loading, error, sportType, onRefres
               match={match}
               isFavoriteHome={isFavorite(`${sportType}-team-${match.homeTeam}`, sportType)}
               isFavoriteAway={isFavorite(`${sportType}-team-${match.awayTeam}`, sportType)}
+              isFavoriteMatch={isFavorite(`${sportType}-match-${match.id}`, sportType)}
               onToggleFavorite={(teamName, side) => handleToggleFavorite(match, teamName, side)}
+              onToggleFavoriteMatch={handleToggleMatchFavorite}
               onClick={() => onMatchClick?.(match)}
             />
           ))}
