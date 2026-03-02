@@ -47,6 +47,8 @@ export const zhTranslations = {
     favoriteTeams: '★ 关注球队',
     allMatches: '全部比赛',
     refreshTitle: '刷新',
+    today: '今天',
+    yesterday: '昨天',
   },
 
   // 比赛详情

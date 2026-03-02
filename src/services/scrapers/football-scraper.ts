@@ -136,10 +136,11 @@ async function fetchLeagueMatches(slug: string, leagueName: string, dateRange: s
 
 export async function scrapeFootballMatches(): Promise<Match[]> {
   const now = new Date()
-  const todayStr = formatDate(now)
+  const yesterday = new Date(now.getTime() - 86400000)
+  const yesterdayStr = formatDate(yesterday)
   const endDate = new Date(now.getTime() + 7 * 86400000)
   const endStr = formatDate(endDate)
-  const dateRange = `${todayStr}-${endStr}`
+  const dateRange = `${yesterdayStr}-${endStr}`
 
   // 并行请求所有联赛
   const results = await Promise.all(
@@ -148,12 +149,12 @@ export async function scrapeFootballMatches(): Promise<Match[]> {
 
   const allMatches = results.flat()
 
-  // 过滤掉已结束的过去比赛（只保留今天和未来的 + 今天的已结束比赛）
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  // 过滤掉昨天之前的已结束比赛（保留昨天+今天和未来的比赛）
+  const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - 86400000
   const filtered = allMatches.filter((m) => {
     if (m.status === 'finished') {
       const matchTime = new Date(m.startTime).getTime()
-      return matchTime >= todayStart
+      return matchTime >= yesterdayStart
     }
     return true
   })

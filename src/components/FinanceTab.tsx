@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { AssetType, FinanceItem, FinanceWatchItem, FinanceSearchResult } from '../types/finance'
 import { useI18n } from '../i18n'
 import { getFinanceWatchlist, addFinanceWatch, removeFinanceWatch } from '../services/storage'
-import { fetchGoldSilver, refreshWatchlist, searchAsset } from '../services/finance'
+import { fetchPreciousMetals, refreshWatchlist, searchAsset } from '../services/finance'
 
 const ASSET_TYPE_OPTIONS: Array<{ key: AssetType | 'all'; labelZh: string; labelEn: string }> = [
   { key: 'all', labelZh: '全部', labelEn: 'All' },
@@ -36,7 +36,7 @@ export default function FinanceTab() {
   const { locale, t } = useI18n()
   const [watchlist, setWatchlist] = useState<FinanceWatchItem[]>([])
   const [prices, setPrices] = useState<FinanceItem[]>([])
-  const [goldSilver, setGoldSilver] = useState<FinanceItem[]>([])
+  const [preciousMetals, setPreciousMetals] = useState<FinanceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<AssetType | 'all'>('all')
@@ -50,12 +50,12 @@ export default function FinanceTab() {
 
   const loadData = useCallback(async () => {
     try {
-      const [wl, gs] = await Promise.all([
+      const [wl, metals] = await Promise.all([
         getFinanceWatchlist(),
-        fetchGoldSilver(),
+        fetchPreciousMetals(),
       ])
       setWatchlist(wl)
-      setGoldSilver(gs)
+      setPreciousMetals(metals)
 
       if (wl.length > 0) {
         const priceData = await refreshWatchlist(wl)
@@ -75,11 +75,11 @@ export default function FinanceTab() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      const [gs, priceData] = await Promise.all([
-        fetchGoldSilver(),
+      const [metals, priceData] = await Promise.all([
+        fetchPreciousMetals(),
         watchlist.length > 0 ? refreshWatchlist(watchlist) : Promise.resolve([]),
       ])
-      setGoldSilver(gs)
+      setPreciousMetals(metals)
       setPrices(priceData)
     } catch (err) {
       console.error('Refresh error:', err)
@@ -242,26 +242,33 @@ export default function FinanceTab() {
       </div>
 
       {/* Gold/Silver (default) */}
-      {(filter === 'all' || filter === 'gold') && goldSilver.length > 0 && (
+      {(filter === 'all' || filter === 'gold') && preciousMetals.length > 0 && (
         <div className="finance-tab__section">
           <h4 className="finance-tab__section-title">
             {financeT?.goldSilver ?? (locale === 'zh' ? '贵金属' : 'Precious Metals')}
           </h4>
           <div className="finance-tab__list">
-            {goldSilver.map((item) => (
-              <div key={item.id} className="finance-tab__card">
-                <div className="finance-tab__card-left">
-                  <span className="finance-tab__card-symbol">{item.symbol}</span>
-                  <span className="finance-tab__card-name">{locale === 'zh' ? item.name : (item.symbol === 'XAU' ? 'Gold' : 'Silver')}</span>
+            {preciousMetals.map((item) => {
+              const enNames: Record<string, string> = { AU: 'Gold', AG: 'Silver', CU: 'Copper', SN: 'Tin' }
+              const zhNames: Record<string, string> = { AU: '黄金', AG: '白银', CU: '铜', SN: '锡' }
+              const displayName = locale === 'zh'
+                ? (zhNames[item.symbol] ?? item.name)
+                : (enNames[item.symbol] ?? item.symbol)
+              return (
+                <div key={item.id} className="finance-tab__card">
+                  <div className="finance-tab__card-left">
+                    <span className="finance-tab__card-symbol">{item.symbol}</span>
+                    <span className="finance-tab__card-name">{displayName}</span>
+                  </div>
+                  <div className="finance-tab__card-right">
+                    <span className="finance-tab__card-price">{formatPrice(item.price, item.currency)}</span>
+                    <span className={`finance-tab__card-change ${item.changePercent >= 0 ? 'finance-tab__card-change--up' : 'finance-tab__card-change--down'}`}>
+                      {formatChange(item.change, item.changePercent)}
+                    </span>
+                  </div>
                 </div>
-                <div className="finance-tab__card-right">
-                  <span className="finance-tab__card-price">{formatPrice(item.price, item.currency)}</span>
-                  <span className={`finance-tab__card-change ${item.changePercent >= 0 ? 'finance-tab__card-change--up' : 'finance-tab__card-change--down'}`}>
-                    {formatChange(item.change, item.changePercent)}
-                  </span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

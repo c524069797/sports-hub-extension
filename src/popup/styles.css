@@ -199,6 +199,37 @@ body {
   padding: 8px 4px 4px;
 }
 
+.match-list__date-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 2px 4px 8px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.match-list__date-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.match-list__date-tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.match-list__date-tab--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .match-list__loading,
 .match-list__error,
 .match-list__empty {

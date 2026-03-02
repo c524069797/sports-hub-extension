@@ -1,7 +1,40 @@
+import { useState } from 'react'
 import type { Match, SportType } from '../types'
 import MatchCard from './MatchCard'
 import { useFavorites } from '../hooks/useData'
 import { useI18n } from '../i18n'
+
+function getMatchDateKey(match: Match): string {
+  // 优先使用数据源标记的 gameDate（解决 NBA 跨时区问题）
+  if (match.extra?.gameDate && typeof match.extra.gameDate === 'string') {
+    return match.extra.gameDate
+  }
+  const d = new Date(match.startTime)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getDateLabel(dateKey: string, locale: string): string {
+  const now = new Date()
+  const todayKey = toDateKey(now)
+  const yesterdayKey = toDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1))
+  const tomorrowKey = toDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
+
+  if (dateKey === todayKey) return locale === 'zh' ? '今天' : 'Today'
+  if (dateKey === yesterdayKey) return locale === 'zh' ? '昨天' : 'Yesterday'
+  if (dateKey === tomorrowKey) return locale === 'zh' ? '明天' : 'Tomorrow'
+
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  })
+}
 
 interface MatchListProps {
   matches: Match[]
@@ -14,7 +47,8 @@ interface MatchListProps {
 
 export default function MatchList({ matches, loading, error, sportType, onRefresh, onMatchClick }: MatchListProps) {
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites()
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
+  const [selectedDate, setSelectedDate] = useState<string>('all')
 
   const handleToggleFavorite = (match: Match, teamName: string, side: 'home' | 'away') => {
     const teamId = `${sportType}-team-${teamName}`
@@ -99,26 +133,59 @@ export default function MatchList({ matches, loading, error, sportType, onRefres
     return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   })
 
+  // 生成可用日期 Tab（按时间排序）
+  const dateKeysSet = new Set<string>()
+  for (const m of sortedMatches) {
+    dateKeysSet.add(getMatchDateKey(m))
+  }
+  const dateKeys = [...dateKeysSet].sort()
+
+  // 按选中日期过滤
+  const filteredByDate = selectedDate === 'all'
+    ? sortedMatches
+    : sortedMatches.filter((m) => getMatchDateKey(m) === selectedDate)
+
   // 标记关注队伍的比赛并置顶
   const favoriteTeamNames = new Set(
     favorites.filter((f) => f.sportType === sportType).map((f) => f.name),
   )
 
-  const favMatches = sortedMatches.filter(
+  const favMatches = filteredByDate.filter(
     (m) => favoriteTeamNames.has(m.homeTeam) || favoriteTeamNames.has(m.awayTeam),
   )
-  const otherMatches = sortedMatches.filter(
+  const otherMatches = filteredByDate.filter(
     (m) => !favoriteTeamNames.has(m.homeTeam) && !favoriteTeamNames.has(m.awayTeam),
   )
 
   return (
     <div className="match-list">
       <div className="match-list__header">
-        <span className="match-list__count">{matches.length}{t.matchList.matchCount}</span>
+        <span className="match-list__count">{filteredByDate.length}{t.matchList.matchCount}</span>
         <button className="btn btn--icon" onClick={onRefresh} title={t.matchList.refreshTitle}>
           ↻
         </button>
       </div>
+
+      {/* Date Filter Tabs */}
+      {dateKeys.length > 1 && (
+        <div className="match-list__date-tabs">
+          <button
+            className={`match-list__date-tab ${selectedDate === 'all' ? 'match-list__date-tab--active' : ''}`}
+            onClick={() => setSelectedDate('all')}
+          >
+            {locale === 'zh' ? '全部' : 'All'}
+          </button>
+          {dateKeys.map((key) => (
+            <button
+              key={key}
+              className={`match-list__date-tab ${selectedDate === key ? 'match-list__date-tab--active' : ''}`}
+              onClick={() => setSelectedDate(key)}
+            >
+              {getDateLabel(key, locale)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {favMatches.length > 0 && (
         <>
@@ -154,6 +221,12 @@ export default function MatchList({ matches, loading, error, sportType, onRefres
             />
           ))}
         </>
+      )}
+
+      {filteredByDate.length === 0 && (
+        <div className="match-list__empty">
+          <p>{t.matchList.noMatches}</p>
+        </div>
       )}
     </div>
   )

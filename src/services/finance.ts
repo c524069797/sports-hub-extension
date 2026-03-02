@@ -78,38 +78,102 @@ function parseSinaHq(text: string): Array<{ code: string; fields: string[] }> {
   return results
 }
 
-export async function fetchGoldSilver(): Promise<FinanceItem[]> {
-  const url = 'https://hq.sinajs.cn/list=hf_GC,hf_SI'
-  const resp = await fetch(url, {
-    headers: { Referer: 'https://finance.sina.com.cn' },
-  })
-  if (!resp.ok) return []
+export async function fetchPreciousMetals(): Promise<FinanceItem[]> {
+  // 上海期货交易所主力合约代码
+  const shfeCodes = 'nf_AU0,nf_AG0,nf_CU0,nf_SN0'
+  const fallbackCodes = 'AU0,AG0,CU0,SN0'
 
-  const text = await resp.text()
-  const items = parseSinaHq(text)
-  const results: FinanceItem[] = []
-
-  for (const item of items) {
-    if (item.fields.length < 14) continue
-    const isGold = item.code === 'hf_GC'
-    const price = parseFloat(item.fields[0]) || 0
-    const prevClose = parseFloat(item.fields[7]) || 0
-    const change = price - prevClose
-    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0
-
-    results.push({
-      id: isGold ? 'gold_XAU' : 'gold_XAG',
-      type: 'gold',
-      symbol: isGold ? 'XAU' : 'XAG',
-      name: isGold ? '黄金' : '白银',
-      price,
-      change,
-      changePercent,
-      currency: 'USD',
-      updatedAt: new Date().toISOString(),
-    })
+  const metalMap: Record<string, { symbol: string; nameZh: string }> = {
+    nf_AU0: { symbol: 'AU', nameZh: '黄金' },
+    nf_AG0: { symbol: 'AG', nameZh: '白银' },
+    nf_CU0: { symbol: 'CU', nameZh: '铜' },
+    nf_SN0: { symbol: 'SN', nameZh: '锡' },
+    AU0: { symbol: 'AU', nameZh: '黄金' },
+    AG0: { symbol: 'AG', nameZh: '白银' },
+    CU0: { symbol: 'CU', nameZh: '铜' },
+    SN0: { symbol: 'SN', nameZh: '锡' },
   }
-  return results
+
+  // Try Shanghai futures first, then fallback
+  for (const codes of [shfeCodes, fallbackCodes]) {
+    try {
+      const url = `https://hq.sinajs.cn/list=${codes}`
+      const resp = await fetch(url, {
+        headers: { Referer: 'https://finance.sina.com.cn' },
+      })
+      if (!resp.ok) continue
+
+      const text = await resp.text()
+      const items = parseSinaHq(text)
+      const results: FinanceItem[] = []
+
+      for (const item of items) {
+        if (item.fields.length < 1 || !item.fields[0]) continue
+        const meta = metalMap[item.code]
+        if (!meta) continue
+
+        const price = parseFloat(item.fields[0]) || 0
+        if (price === 0) continue
+
+        const prevClose = parseFloat(item.fields[item.fields.length >= 14 ? 7 : (item.fields.length >= 8 ? 7 : 1)]) || 0
+        const change = prevClose > 0 ? price - prevClose : 0
+        const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0
+
+        results.push({
+          id: `gold_${meta.symbol}`,
+          type: 'gold',
+          symbol: meta.symbol,
+          name: meta.nameZh,
+          price,
+          change,
+          changePercent,
+          currency: 'CNY',
+          updatedAt: new Date().toISOString(),
+        })
+      }
+
+      if (results.length > 0) return results
+    } catch {
+      // try next codes
+    }
+  }
+
+  // Final fallback: international gold/silver (USD)
+  try {
+    const url = 'https://hq.sinajs.cn/list=hf_GC,hf_SI'
+    const resp = await fetch(url, {
+      headers: { Referer: 'https://finance.sina.com.cn' },
+    })
+    if (!resp.ok) return []
+
+    const text = await resp.text()
+    const items = parseSinaHq(text)
+    const results: FinanceItem[] = []
+
+    for (const item of items) {
+      if (item.fields.length < 14) continue
+      const isGold = item.code === 'hf_GC'
+      const price = parseFloat(item.fields[0]) || 0
+      const prevClose = parseFloat(item.fields[7]) || 0
+      const change = price - prevClose
+      const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0
+
+      results.push({
+        id: isGold ? 'gold_AU' : 'gold_AG',
+        type: 'gold',
+        symbol: isGold ? 'AU' : 'AG',
+        name: isGold ? '黄金' : '白银',
+        price,
+        change,
+        changePercent,
+        currency: 'USD',
+        updatedAt: new Date().toISOString(),
+      })
+    }
+    return results
+  } catch {
+    return []
+  }
 }
 
 export async function fetchStockCN(codes: string[]): Promise<FinanceItem[]> {

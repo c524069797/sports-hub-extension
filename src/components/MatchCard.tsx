@@ -96,7 +96,7 @@ export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, isFav
         {/* Score */}
         <div className="match-card__score">
           {match.status === 'upcoming' ? (
-            <span className="match-card__time">{formatMatchTime(match.startTime, locale)}</span>
+            <span className="match-card__time">{formatMatchTime(match.startTime, locale, typeof match.extra?.gameDate === 'string' ? match.extra.gameDate as string : undefined)}</span>
           ) : (
             <>
               <span className={`match-card__score-num ${isLive ? 'match-card__score-num--live' : ''}`}>

@@ -124,66 +124,141 @@ async function fetchGameBoxscore(gameId: string): Promise<{ homePlayers: PlayerS
   }
 }
 
+async function fetchNBAScoreboardByDate(dateStr: string): Promise<NbaApiGame[]> {
+  // cdn.nba.com 的历史 scoreboard 端点返回 403，改用 ESPN API
+  try {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    if (!resp.ok) return []
+
+    const data = await resp.json() as {
+      events: Array<{
+        id: string
+        date: string
+        competitions: Array<{
+          status: { type: { completed: boolean }; displayClock?: string }
+          competitors: Array<{
+            homeAway: 'home' | 'away'
+            score: string
+            team: { id: string; displayName: string; shortDisplayName: string; abbreviation: string }
+          }>
+        }>
+      }>
+    }
+
+    // 将 ESPN 数据转换为 NbaApiGame 格式以复用 parseNbaGames
+    return (data.events ?? []).map((event) => {
+      const comp = event.competitions[0]
+      const home = comp.competitors.find((c) => c.homeAway === 'home')
+      const away = comp.competitors.find((c) => c.homeAway === 'away')
+      if (!home || !away) return null
+
+      const completed = comp.status.type.completed
+      const homeScore = parseInt(home.score, 10) || 0
+      const awayScore = parseInt(away.score, 10) || 0
+
+      return {
+        gameId: `espn-${event.id}`,
+        gameStatusText: completed ? 'Final' : '',
+        gameStatus: completed ? 3 : 1,
+        gameTimeUTC: event.date,
+        homeTeam: {
+          teamId: NBA_TEAM_IDS[home.team.abbreviation] ?? parseInt(home.team.id, 10),
+          teamName: home.team.shortDisplayName,
+          teamTricode: home.team.abbreviation,
+          score: homeScore,
+        },
+        awayTeam: {
+          teamId: NBA_TEAM_IDS[away.team.abbreviation] ?? parseInt(away.team.id, 10),
+          teamName: away.team.shortDisplayName,
+          teamTricode: away.team.abbreviation,
+          score: awayScore,
+        },
+      } satisfies NbaApiGame
+    }).filter((g): g is NbaApiGame => g !== null)
+  } catch {
+    return []
+  }
+}
+
+function formatDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}${m}${day}`
+}
+
+async function parseNbaGames(games: NbaApiGame[], gameDate?: string): Promise<Match[]> {
+  return Promise.all(
+    games.map(async (game) => {
+      const extra: Record<string, string> = {}
+      if (game.gameLeaders?.homeLeaders) {
+        const l = game.gameLeaders.homeLeaders
+        extra.homeLeaderName = l.name
+        extra.homeLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
+        extra.homeLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
+      }
+      if (game.gameLeaders?.awayLeaders) {
+        const l = game.gameLeaders.awayLeaders
+        extra.awayLeaderName = l.name
+        extra.awayLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
+        extra.awayLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
+      }
+      extra.statusText = game.gameStatusText
+      if (gameDate) {
+        extra.gameDate = gameDate
+      }
+
+      const match: Match = {
+        id: `nba-${game.gameId}`,
+        sportType: 'nba' as const,
+        homeTeam: getTeamCnName(game.homeTeam.teamName),
+        awayTeam: getTeamCnName(game.awayTeam.teamName),
+        homeScore: game.homeTeam.score,
+        awayScore: game.awayTeam.score,
+        homeLogo: getNbaLogoByTeamId(game.homeTeam.teamId),
+        awayLogo: getNbaLogoByTeamId(game.awayTeam.teamId),
+        status: parseNbaStatus(game.gameStatus),
+        startTime: game.gameTimeUTC,
+        league: 'NBA',
+        extra,
+      }
+
+      // 只为已开始的比赛获取球员数据
+      if (game.gameStatus === 2 || game.gameStatus === 3) {
+        const boxscore = await fetchGameBoxscore(game.gameId)
+        if (boxscore) {
+          match.homePlayers = boxscore.homePlayers
+          match.awayPlayers = boxscore.awayPlayers
+        }
+      }
+
+      return match
+    })
+  )
+}
+
 export async function fetchNBAMatches(): Promise<Match[]> {
   try {
-    const response = await fetch(NBA_SCOREBOARD_URL, {
-      headers: {
-        'Accept': 'application/json',
-        'Referer': 'https://www.nba.com/',
-        'Origin': 'https://www.nba.com',
-      },
-    })
-    if (!response.ok) throw new Error(`NBA API error: ${response.status}`)
+    // ESPN 按美国日期查询，美国日期的比赛在东亚时区是次日
+    // 所以查询本地"昨天"和"今天"对应的 ESPN 日期，即可得到本地今天+明天的比赛
+    const now = new Date()
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    const todayStr = formatDateStr(now)
+    const yesterdayStr = formatDateStr(yesterday)
 
-    const data: NbaApiResponse = await response.json()
+    const [todayUSGames, yesterdayUSGames] = await Promise.all([
+      fetchNBAScoreboardByDate(todayStr),
+      fetchNBAScoreboardByDate(yesterdayStr),
+    ])
 
-    // 并行获取所有比赛的球员数据
-    const gamesWithPlayers = await Promise.all(
-      data.scoreboard.games.map(async (game) => {
-        const extra: Record<string, string> = {}
-        if (game.gameLeaders?.homeLeaders) {
-          const l = game.gameLeaders.homeLeaders
-          extra.homeLeaderName = l.name
-          extra.homeLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
-          extra.homeLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
-        }
-        if (game.gameLeaders?.awayLeaders) {
-          const l = game.gameLeaders.awayLeaders
-          extra.awayLeaderName = l.name
-          extra.awayLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
-          extra.awayLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
-        }
-        extra.statusText = game.gameStatusText
+    // 不传 gameDate，让前端根据 startTime 在浏览器本地时区自动计算日期归属
+    const [todayUSMatches, yesterdayUSMatches] = await Promise.all([
+      parseNbaGames(todayUSGames),
+      parseNbaGames(yesterdayUSGames),
+    ])
 
-        const match: Match = {
-          id: `nba-${game.gameId}`,
-          sportType: 'nba' as const,
-          homeTeam: getTeamCnName(game.homeTeam.teamName),
-          awayTeam: getTeamCnName(game.awayTeam.teamName),
-          homeScore: game.homeTeam.score,
-          awayScore: game.awayTeam.score,
-          homeLogo: getNbaLogoByTeamId(game.homeTeam.teamId),
-          awayLogo: getNbaLogoByTeamId(game.awayTeam.teamId),
-          status: parseNbaStatus(game.gameStatus),
-          startTime: game.gameTimeUTC,
-          league: 'NBA',
-          extra,
-        }
-
-        // 只为已开始的比赛获取球员数据
-        if (game.gameStatus === 2 || game.gameStatus === 3) {
-          const boxscore = await fetchGameBoxscore(game.gameId)
-          if (boxscore) {
-            match.homePlayers = boxscore.homePlayers
-            match.awayPlayers = boxscore.awayPlayers
-          }
-        }
-
-        return match
-      })
-    )
-
-    return gamesWithPlayers
+    return [...todayUSMatches, ...yesterdayUSMatches]
   } catch (error) {
     console.error('Failed to fetch NBA matches:', error)
     return getFallbackNBAMatches()

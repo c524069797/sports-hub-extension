@@ -47,6 +47,8 @@ export const enTranslations = {
     favoriteTeams: '★ Favorite Teams',
     allMatches: 'All Matches',
     refreshTitle: 'Refresh',
+    today: 'Today',
+    yesterday: 'Yesterday',
   },
 
   // Match detail
