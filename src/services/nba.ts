@@ -40,6 +40,13 @@ const NBA_TEAM_IDS: Record<string, number> = {
   OKC: 1610612760, ORL: 1610612753, PHI: 1610612755, PHX: 1610612756,
   POR: 1610612757, SAC: 1610612758, SAS: 1610612759, TOR: 1610612761,
   UTA: 1610612762, WAS: 1610612764,
+  // ESPN 缩写别名（ESPN 和 NBA 官方缩写不一致的球队）
+  GS: 1610612744,   // Warriors (NBA: GSW)
+  NO: 1610612740,   // Pelicans (NBA: NOP)
+  NY: 1610612752,   // Knicks (NBA: NYK)
+  SA: 1610612759,   // Spurs (NBA: SAS)
+  UTAH: 1610612762, // Jazz (NBA: UTA)
+  WSH: 1610612764,  // Wizards (NBA: WAS)
 }
 
 const NBA_TEAM_CN: Record<string, string> = {
