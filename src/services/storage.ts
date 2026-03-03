@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   CACHED_MATCHES: 'cachedMatches',
   LAST_FETCH_TIME: 'lastFetchTime',
   FINANCE_WATCHLIST: 'financeWatchlist',
+  NOTIFIED_MATCH_IDS: 'notifiedMatchIds',
 } as const
 
 function getStorage(): typeof chrome.storage.local {
@@ -159,4 +160,25 @@ export async function removeFinanceWatch(id: string): Promise<FinanceWatchItem[]
   const updated = list.filter((w) => w.id !== id)
   await getStorage().set({ [STORAGE_KEYS.FINANCE_WATCHLIST]: updated })
   return updated
+}
+
+// ========== Notified Match IDs ==========
+export async function getNotifiedMatchIds(): Promise<string[]> {
+  const storage = getStorage()
+  const result = await storage.get(STORAGE_KEYS.NOTIFIED_MATCH_IDS)
+  return (result as Record<string, unknown>)[STORAGE_KEYS.NOTIFIED_MATCH_IDS] as string[] ?? []
+}
+
+export async function addNotifiedMatchId(id: string): Promise<void> {
+  const ids = await getNotifiedMatchIds()
+  if (ids.includes(id)) return
+  const updated = [...ids, id]
+  await getStorage().set({ [STORAGE_KEYS.NOTIFIED_MATCH_IDS]: updated })
+}
+
+export async function clearOldNotifiedIds(currentMatchIds: string[]): Promise<void> {
+  const ids = await getNotifiedMatchIds()
+  const currentSet = new Set(currentMatchIds)
+  const updated = ids.filter((id) => currentSet.has(id))
+  await getStorage().set({ [STORAGE_KEYS.NOTIFIED_MATCH_IDS]: updated })
 }

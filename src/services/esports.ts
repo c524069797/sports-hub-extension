@@ -3,8 +3,7 @@ import { API_KEYS, hasEsportsApiKey } from '../config/api-keys'
 import { scrapeEsportsMatches } from './scrapers/esports-scraper'
 
 // 电竞数据来源：
-// HLTV (CS2) 和 op.gg 没有官方公开 API，使用 CORS proxy 或社区 API
-// 这里使用模拟数据 + PandaScore 的公开端点
+// 优先使用 PandaScore API（有真实比分），Polymarket 作为补充，fallback 数据兜底
 
 interface EsportsApiMatch {
   id: number
@@ -53,72 +52,118 @@ export function getGameDisplayName(game: EsportsGame): string {
   return GAME_NAMES[game] ?? game
 }
 
+function parsePandaScoreMatches(data: EsportsApiMatch[]): Match[] {
+  return data
+    .filter((m) => m.opponents && m.opponents.length >= 2)
+    .map((m) => {
+      const game = m.videogame?.slug ? mapVideoGameSlug(m.videogame.slug) : 'csgo'
+      const homeOpponent = m.opponents![0]
+      const awayOpponent = m.opponents![1]
+      const homeResult = m.results?.find((r) => r.team_id === homeOpponent.opponent.id)
+      const awayResult = m.results?.find((r) => r.team_id === awayOpponent.opponent.id)
+
+      return {
+        id: `esports-${m.id}`,
+        sportType: 'esports' as const,
+        homeTeam: homeOpponent.opponent.name,
+        awayTeam: awayOpponent.opponent.name,
+        homeScore: homeResult?.score,
+        awayScore: awayResult?.score,
+        homeLogo: homeOpponent.opponent.image_url,
+        awayLogo: awayOpponent.opponent.image_url,
+        status: parseEsportsStatus(m.status),
+        startTime: m.begin_at,
+        league: m.league?.name ?? m.tournament?.name ?? 'Unknown',
+        extra: {
+          game,
+          gameName: getGameDisplayName(game),
+          bestOf: m.number_of_games ? `BO${m.number_of_games}` : '',
+        },
+      } satisfies Match
+    })
+}
+
+async function fetchFromPandaScore(): Promise<Match[]> {
+  if (!hasEsportsApiKey()) return []
+
+  try {
+    const [runningResponse, pastResponse, upcomingResponse] = await Promise.all([
+      fetch(
+        'https://api.pandascore.co/matches/running?per_page=20',
+        { headers: { Authorization: `Bearer ${API_KEYS.PANDASCORE}` } },
+      ),
+      fetch(
+        'https://api.pandascore.co/matches/past?per_page=20&sort=-begin_at',
+        { headers: { Authorization: `Bearer ${API_KEYS.PANDASCORE}` } },
+      ),
+      fetch(
+        'https://api.pandascore.co/matches/upcoming?per_page=10&sort=begin_at',
+        { headers: { Authorization: `Bearer ${API_KEYS.PANDASCORE}` } },
+      ),
+    ])
+
+    const runningData: EsportsApiMatch[] = runningResponse.ok ? await runningResponse.json() : []
+    const pastData: EsportsApiMatch[] = pastResponse.ok ? await pastResponse.json() : []
+    const upcomingData: EsportsApiMatch[] = upcomingResponse.ok ? await upcomingResponse.json() : []
+
+    const allData = [...runningData, ...pastData, ...upcomingData]
+    const matches = parsePandaScoreMatches(allData)
+
+    // 去重
+    const seen = new Set<string>()
+    return matches.filter((m) => {
+      if (seen.has(m.id)) return false
+      seen.add(m.id)
+      return true
+    })
+  } catch (error) {
+    console.error('PandaScore API failed:', error)
+    return []
+  }
+}
+
 export async function fetchEsportsMatches(gameFilter: EsportsGame | 'all' = 'all'): Promise<Match[]> {
-  // 优先使用爬虫获取最新数据
-  console.log('Attempting to scrape esports data...')
+  // 1. 优先使用 PandaScore API（有真实比分）
+  console.log('Fetching esports data from PandaScore...')
+  const pandaMatches = await fetchFromPandaScore()
+
+  if (pandaMatches.length > 0) {
+    console.log(`Got ${pandaMatches.length} matches from PandaScore`)
+
+    // 2. 同时尝试从 Polymarket 补充更多比赛
+    let polyMatches: Match[] = []
+    try {
+      polyMatches = await scrapeEsportsMatches(gameFilter)
+    } catch {
+      // Polymarket 失败不影响主流程
+    }
+
+    // 合并：PandaScore 数据为主，Polymarket 补充 PandaScore 没有的比赛
+    // 用队名组合做匹配键来去重
+    const pandaKeys = new Set(
+      pandaMatches.map((m) => `${m.homeTeam.toLowerCase()}|${m.awayTeam.toLowerCase()}`),
+    )
+    const extraMatches = polyMatches.filter((m) => {
+      const key = `${m.homeTeam.toLowerCase()}|${m.awayTeam.toLowerCase()}`
+      const reverseKey = `${m.awayTeam.toLowerCase()}|${m.homeTeam.toLowerCase()}`
+      return !pandaKeys.has(key) && !pandaKeys.has(reverseKey)
+    })
+
+    const merged = [...pandaMatches, ...extraMatches]
+    if (gameFilter === 'all') return merged
+    return merged.filter((m) => m.extra?.game === gameFilter)
+  }
+
+  // 3. PandaScore 无数据，降级到 Polymarket 爬虫
+  console.log('PandaScore returned no data, trying Polymarket scraper...')
   const scrapedMatches = await scrapeEsportsMatches(gameFilter)
 
   if (scrapedMatches.length > 0) {
-    console.log(`Successfully scraped ${scrapedMatches.length} esports matches`)
+    console.log(`Got ${scrapedMatches.length} matches from Polymarket`)
     return scrapedMatches
   }
 
-  // 如果爬虫失败，尝试使用 API（如果配置了）
-  if (hasEsportsApiKey()) {
-    console.log('Scraping failed, trying API with key...')
-    try {
-      const response = await fetch(
-        'https://api.pandascore.co/matches/running?per_page=20',
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEYS.PANDASCORE}`,
-          },
-        },
-      )
-
-      if (response.ok) {
-        const data: EsportsApiMatch[] = await response.json()
-
-        if (data && data.length > 0) {
-          const matches = data
-            .filter((m) => m.opponents && m.opponents.length >= 2)
-            .map((m) => {
-              const game = m.videogame?.slug ? mapVideoGameSlug(m.videogame.slug) : 'csgo'
-              const homeOpponent = m.opponents![0]
-              const awayOpponent = m.opponents![1]
-              const homeResult = m.results?.find((r) => r.team_id === homeOpponent.opponent.id)
-              const awayResult = m.results?.find((r) => r.team_id === awayOpponent.opponent.id)
-
-              return {
-                id: `esports-${m.id}`,
-                sportType: 'esports' as const,
-                homeTeam: homeOpponent.opponent.name,
-                awayTeam: awayOpponent.opponent.name,
-                homeScore: homeResult?.score,
-                awayScore: awayResult?.score,
-                homeLogo: homeOpponent.opponent.image_url,
-                awayLogo: awayOpponent.opponent.image_url,
-                status: parseEsportsStatus(m.status),
-                startTime: m.begin_at,
-                league: m.league?.name ?? m.tournament?.name ?? 'Unknown',
-                extra: {
-                  game,
-                  gameName: getGameDisplayName(game),
-                  bestOf: m.number_of_games ? `BO${m.number_of_games}` : '',
-                },
-              } satisfies Match
-            })
-
-          if (gameFilter === 'all') return matches
-          return matches.filter((m) => m.extra?.game === gameFilter)
-        }
-      }
-    } catch (error) {
-      console.error('API fetch also failed:', error)
-    }
-  }
-
-  // 最后降级到 fallback 数据
+  // 4. 最后降级到 fallback 数据
   console.info('Using fallback esports data')
   return getFallbackEsportsMatches(gameFilter)
 }
@@ -127,6 +172,7 @@ function getFallbackEsportsMatches(gameFilter: EsportsGame | 'all'): Match[] {
   const now = new Date()
   const todayStr = now.toISOString().split('T')[0]
   const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().split('T')[0]
+  const yesterdayStr = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
 
   const matches: Match[] = [
     // CS2 比赛
@@ -228,10 +274,10 @@ function getFallbackEsportsMatches(gameFilter: EsportsGame | 'all'): Match[] {
       sportType: 'esports',
       homeTeam: 'WBG',
       awayTeam: 'TES',
-      homeScore: 1,
+      homeScore: 2,
       awayScore: 1,
-      status: 'live',
-      startTime: `${todayStr}T10:00:00Z`, // 北京时间 18:00
+      status: 'finished',
+      startTime: `${yesterdayStr}T10:00:00Z`, // 北京时间昨天 18:00
       league: 'LPL Spring 2026',
       extra: { game: 'lol', gameName: 'LOL', bestOf: 'BO3', region: 'LPL' },
       homePlayers: [

@@ -43,6 +43,8 @@ export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, isFav
 
   const hasPlayers = (match.homePlayers?.length ?? 0) > 0 || (match.awayPlayers?.length ?? 0) > 0
   const isEsports = match.sportType === 'esports'
+  const displayHomeScore = match.homeScore != null ? match.homeScore : (match.status === 'upcoming' ? 0 : '-')
+  const displayAwayScore = match.awayScore != null ? match.awayScore : (match.status === 'upcoming' ? 0 : '-')
 
   return (
     <div
@@ -100,13 +102,16 @@ export default function MatchCard({ match, isFavoriteHome, isFavoriteAway, isFav
           ) : (
             <>
               <span className={`match-card__score-num ${isLive ? 'match-card__score-num--live' : ''}`}>
-                {match.homeScore ?? 0}
+                {displayHomeScore}
               </span>
               <span className="match-card__score-sep">:</span>
               <span className={`match-card__score-num ${isLive ? 'match-card__score-num--live' : ''}`}>
-                {match.awayScore ?? 0}
+                {displayAwayScore}
               </span>
             </>
+          )}
+          {match.status !== 'upcoming' && (
+            <span className="match-card__time">{formatMatchTime(match.startTime, locale, typeof match.extra?.gameDate === 'string' ? match.extra.gameDate as string : undefined)}</span>
           )}
         </div>
 

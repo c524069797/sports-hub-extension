@@ -36,7 +36,8 @@
   },
   "chromium:permissions": [
     "storage",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
   "chromium:host_permissions": [
     "https://cdn.nba.com/*",
@@ -49,11 +50,13 @@
     "https://api.pandascore.co/*",
     "https://api.coingecko.com/*",
     "https://hq.sinajs.cn/*",
+    "https://qt.gtimg.cn/*",
     "https://fundgz.1234567.com.cn/*"
   ],
   "firefox:permissions": [
     "storage",
     "alarms",
+    "notifications",
     "https://cdn.nba.com/*",
     "https://nba.com/*",
     "https://stats.nba.com/*",
@@ -64,6 +67,7 @@
     "https://api.pandascore.co/*",
     "https://api.coingecko.com/*",
     "https://hq.sinajs.cn/*",
+    "https://qt.gtimg.cn/*",
     "https://fundgz.1234567.com.cn/*"
   ],
   "background": {

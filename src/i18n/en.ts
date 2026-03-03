@@ -97,6 +97,9 @@ export const enTranslations = {
     version: 'Sports Hub v1.0.0',
     description: 'NBA / Football / Esports + Finance Hub',
     minutes: ' min',
+    enableNotifications: 'Match End Notifications',
+    matchFinished: 'Match Ended',
+    matchFinishedBody: '{home} vs {away} has ended, score: {homeScore}:{awayScore}',
   },
 
   // Finance module
@@ -118,6 +121,9 @@ export const enTranslations = {
     stockUS: 'US Stock',
     fund: 'Fund',
     all: 'All',
+    defaultCrypto: 'Major Crypto',
+    defaultStockCN: 'CN Indices',
+    defaultStockUS: 'US Markets',
   },
 
   // Sport types

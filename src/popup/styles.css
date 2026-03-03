@@ -397,6 +397,7 @@ body {
   flex-shrink: 0;
   min-width: 60px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .match-card__score-num {
@@ -421,6 +422,7 @@ body {
   font-size: 11px;
   color: var(--text-secondary);
   text-align: center;
+  width: 100%;
 }
 
 .match-card__footer {

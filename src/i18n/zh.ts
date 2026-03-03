@@ -97,6 +97,9 @@ export const zhTranslations = {
     version: 'Sports Hub v1.0.0',
     description: 'NBA / 足球 / 电竞赛事 + 金融行情',
     minutes: '分钟',
+    enableNotifications: '比赛结束通知',
+    matchFinished: '比赛结束',
+    matchFinishedBody: '{home} vs {away} 的比赛已结束，比分 {homeScore}:{awayScore}',
   },
 
   // 金融模块
@@ -118,6 +121,9 @@ export const zhTranslations = {
     stockUS: '美股',
     fund: '基金',
     all: '全部',
+    defaultCrypto: '主流币',
+    defaultStockCN: 'A股指数',
+    defaultStockUS: '美股行情',
   },
 
   // 运动类型

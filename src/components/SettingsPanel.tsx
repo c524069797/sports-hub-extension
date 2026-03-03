@@ -66,6 +66,27 @@ export default function SettingsPanel() {
         </div>
       </div>
 
+      {/* 比赛结束通知 */}
+      <div className="settings-panel__item">
+        <label className="settings-panel__label">
+          {t.settings.enableNotifications}
+        </label>
+        <div className="settings-panel__toggle-group">
+          <button
+            className={`settings-panel__toggle ${settings.enableNotifications ? 'settings-panel__toggle--active' : ''}`}
+            onClick={() => updateSettings({ enableNotifications: true })}
+          >
+            ON
+          </button>
+          <button
+            className={`settings-panel__toggle ${!settings.enableNotifications ? 'settings-panel__toggle--active' : ''}`}
+            onClick={() => updateSettings({ enableNotifications: false })}
+          >
+            OFF
+          </button>
+        </div>
+      </div>
+
       {/* 版本信息 */}
       <div className="settings-panel__footer">
         <p className="settings-panel__version">{t.settings.version}</p>

@@ -2,15 +2,16 @@ import { useState, useEffect, useCallback } from 'react'
 import type { AssetType, FinanceItem, FinanceWatchItem, FinanceSearchResult } from '../types/finance'
 import { useI18n } from '../i18n'
 import { getFinanceWatchlist, addFinanceWatch, removeFinanceWatch } from '../services/storage'
-import { fetchPreciousMetals, refreshWatchlist, searchAsset } from '../services/finance'
+import { fetchPreciousMetals, fetchDefaultCrypto, fetchDefaultStockCN, fetchDefaultStockUS, refreshWatchlist, searchAsset } from '../services/finance'
 
+// Tab 顺序：贵金属 > A股 > 美股 > 加密（加密排最后）
 const ASSET_TYPE_OPTIONS: Array<{ key: AssetType | 'all'; labelZh: string; labelEn: string }> = [
   { key: 'all', labelZh: '全部', labelEn: 'All' },
-  { key: 'crypto', labelZh: '加密', labelEn: 'Crypto' },
   { key: 'gold', labelZh: '贵金属', labelEn: 'Metals' },
   { key: 'stock_cn', labelZh: 'A股', labelEn: 'CN Stock' },
   { key: 'stock_us', labelZh: '美股', labelEn: 'US Stock' },
   { key: 'fund', labelZh: '基金', labelEn: 'Fund' },
+  { key: 'crypto', labelZh: '加密', labelEn: 'Crypto' },
 ]
 
 const SEARCH_TYPE_OPTIONS: Array<{ key: AssetType; labelZh: string; labelEn: string }> = [
@@ -21,6 +22,28 @@ const SEARCH_TYPE_OPTIONS: Array<{ key: AssetType; labelZh: string; labelEn: str
 ]
 
 function formatPrice(price: number, currency: string): string {
+  // INDEX: no symbol, just the number (for stock indices)
+  if (currency === 'INDEX') {
+    if (price >= 10000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+
+  // Unit-based currencies for precious metals: CNY/g, CNY/kg, CNY/t
+  const unitMap: Record<string, { symbol: string; unit: string }> = {
+    'CNY/g': { symbol: '¥', unit: '/克' },
+    'CNY/kg': { symbol: '¥', unit: '/千克' },
+    'CNY/t': { symbol: '¥', unit: '/吨' },
+    'USD/oz': { symbol: '$', unit: '/oz' },
+  }
+  const unitInfo = unitMap[currency]
+  if (unitInfo) {
+    const formatted = price >= 10000
+      ? price.toLocaleString('en-US', { maximumFractionDigits: 0 })
+      : price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return `${unitInfo.symbol}${formatted}${unitInfo.unit}`
+  }
+
+  // Standard currencies
   const symbol = currency === 'CNY' ? '¥' : '$'
   if (price >= 10000) return `${symbol}${price.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   if (price >= 1) return `${symbol}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -32,11 +55,40 @@ function formatChange(change: number, percent: number): string {
   return `${sign}${percent.toFixed(2)}%`
 }
 
+function FinanceCard({ item, locale, onRemove }: { item: FinanceItem; locale: string; onRemove?: () => void }) {
+  return (
+    <div className="finance-tab__card">
+      <div className="finance-tab__card-left">
+        <span className="finance-tab__card-symbol">{item.symbol}</span>
+        <span className="finance-tab__card-name">{item.name}</span>
+      </div>
+      <div className="finance-tab__card-right">
+        <span className="finance-tab__card-price">{formatPrice(item.price, item.currency)}</span>
+        <span className={`finance-tab__card-change ${item.changePercent >= 0 ? 'finance-tab__card-change--up' : 'finance-tab__card-change--down'}`}>
+          {formatChange(item.change, item.changePercent)}
+        </span>
+        {onRemove && (
+          <button
+            className="finance-tab__remove-btn"
+            onClick={onRemove}
+            title={locale === 'zh' ? '取消关注' : 'Remove'}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function FinanceTab() {
   const { locale, t } = useI18n()
   const [watchlist, setWatchlist] = useState<FinanceWatchItem[]>([])
   const [prices, setPrices] = useState<FinanceItem[]>([])
   const [preciousMetals, setPreciousMetals] = useState<FinanceItem[]>([])
+  const [defaultCrypto, setDefaultCrypto] = useState<FinanceItem[]>([])
+  const [defaultStockCN, setDefaultStockCN] = useState<FinanceItem[]>([])
+  const [defaultStockUS, setDefaultStockUS] = useState<FinanceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<AssetType | 'all'>('all')
@@ -50,12 +102,25 @@ export default function FinanceTab() {
 
   const loadData = useCallback(async () => {
     try {
-      const [wl, metals] = await Promise.all([
+      const results = await Promise.allSettled([
         getFinanceWatchlist(),
         fetchPreciousMetals(),
+        fetchDefaultCrypto(),
+        fetchDefaultStockCN(),
+        fetchDefaultStockUS(),
       ])
+
+      const wl = results[0].status === 'fulfilled' ? results[0].value : []
+      const metals = results[1].status === 'fulfilled' ? results[1].value : []
+      const crypto = results[2].status === 'fulfilled' ? results[2].value : []
+      const cnStocks = results[3].status === 'fulfilled' ? results[3].value : []
+      const usStocks = results[4].status === 'fulfilled' ? results[4].value : []
+
       setWatchlist(wl)
       setPreciousMetals(metals)
+      setDefaultCrypto(crypto)
+      setDefaultStockCN(cnStocks)
+      setDefaultStockUS(usStocks)
 
       if (wl.length > 0) {
         const priceData = await refreshWatchlist(wl)
@@ -75,12 +140,19 @@ export default function FinanceTab() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      const [metals, priceData] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchPreciousMetals(),
+        fetchDefaultCrypto(),
+        fetchDefaultStockCN(),
+        fetchDefaultStockUS(),
         watchlist.length > 0 ? refreshWatchlist(watchlist) : Promise.resolve([]),
       ])
-      setPreciousMetals(metals)
-      setPrices(priceData)
+
+      if (results[0].status === 'fulfilled' && results[0].value.length > 0) setPreciousMetals(results[0].value)
+      if (results[1].status === 'fulfilled' && results[1].value.length > 0) setDefaultCrypto(results[1].value)
+      if (results[2].status === 'fulfilled' && results[2].value.length > 0) setDefaultStockCN(results[2].value)
+      if (results[3].status === 'fulfilled' && results[3].value.length > 0) setDefaultStockUS(results[3].value)
+      if (results[4].status === 'fulfilled') setPrices(results[4].value)
     } catch (err) {
       console.error('Refresh error:', err)
     } finally {
@@ -137,6 +209,12 @@ export default function FinanceTab() {
 
   const financeT = t.finance
 
+  // 贵金属名称映射
+  const metalNames: Record<string, Record<string, string>> = {
+    zh: { AU: '黄金', AG: '白银', CU: '铜', SN: '锡', NI: '镍' },
+    en: { AU: 'Gold', AG: 'Silver', CU: 'Copper', SN: 'Tin', NI: 'Nickel' },
+  }
+
   if (loading) {
     return (
       <div className="finance-tab">
@@ -146,6 +224,11 @@ export default function FinanceTab() {
       </div>
     )
   }
+
+  const showMetals = (filter === 'all' || filter === 'gold') && preciousMetals.length > 0
+  const showCNStock = (filter === 'all' || filter === 'stock_cn') && defaultStockCN.length > 0
+  const showUSStock = (filter === 'all' || filter === 'stock_us') && defaultStockUS.length > 0
+  const showCrypto = (filter === 'all' || filter === 'crypto') && defaultCrypto.length > 0
 
   return (
     <div className="finance-tab">
@@ -241,34 +324,60 @@ export default function FinanceTab() {
         ))}
       </div>
 
-      {/* Gold/Silver (default) */}
-      {(filter === 'all' || filter === 'gold') && preciousMetals.length > 0 && (
+      {/* Precious Metals (default) */}
+      {showMetals && (
         <div className="finance-tab__section">
           <h4 className="finance-tab__section-title">
             {financeT?.goldSilver ?? (locale === 'zh' ? '贵金属' : 'Precious Metals')}
           </h4>
           <div className="finance-tab__list">
             {preciousMetals.map((item) => {
-              const enNames: Record<string, string> = { AU: 'Gold', AG: 'Silver', CU: 'Copper', SN: 'Tin' }
-              const zhNames: Record<string, string> = { AU: '黄金', AG: '白银', CU: '铜', SN: '锡' }
-              const displayName = locale === 'zh'
-                ? (zhNames[item.symbol] ?? item.name)
-                : (enNames[item.symbol] ?? item.symbol)
-              return (
-                <div key={item.id} className="finance-tab__card">
-                  <div className="finance-tab__card-left">
-                    <span className="finance-tab__card-symbol">{item.symbol}</span>
-                    <span className="finance-tab__card-name">{displayName}</span>
-                  </div>
-                  <div className="finance-tab__card-right">
-                    <span className="finance-tab__card-price">{formatPrice(item.price, item.currency)}</span>
-                    <span className={`finance-tab__card-change ${item.changePercent >= 0 ? 'finance-tab__card-change--up' : 'finance-tab__card-change--down'}`}>
-                      {formatChange(item.change, item.changePercent)}
-                    </span>
-                  </div>
-                </div>
-              )
+              const names = metalNames[locale] ?? metalNames.en
+              const displayItem = { ...item, name: names[item.symbol] ?? item.name }
+              return <FinanceCard key={item.id} item={displayItem} locale={locale} />
             })}
+          </div>
+        </div>
+      )}
+
+      {/* A Stock Indices (default) */}
+      {showCNStock && (
+        <div className="finance-tab__section">
+          <h4 className="finance-tab__section-title">
+            {financeT?.defaultStockCN ?? (locale === 'zh' ? 'A股指数' : 'CN Indices')}
+          </h4>
+          <div className="finance-tab__list">
+            {defaultStockCN.map((item) => (
+              <FinanceCard key={item.id} item={item} locale={locale} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* US Stock Markets (default) */}
+      {showUSStock && (
+        <div className="finance-tab__section">
+          <h4 className="finance-tab__section-title">
+            {financeT?.defaultStockUS ?? (locale === 'zh' ? '美股行情' : 'US Markets')}
+          </h4>
+          <div className="finance-tab__list">
+            {defaultStockUS.map((item) => (
+              <FinanceCard key={item.id} item={item} locale={locale} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Major Crypto (default) */}
+      {showCrypto && (
+        <div className="finance-tab__section">
+          <h4 className="finance-tab__section-title">
+            {financeT?.defaultCrypto ?? (locale === 'zh' ? '主流币' : 'Major Crypto')}
+          </h4>
+          <div className="finance-tab__list">
+            {defaultCrypto.map((item) => (
+              <FinanceCard key={item.id} item={item} locale={locale} />
+            ))}
           </div>
         </div>
       )}
@@ -314,8 +423,8 @@ export default function FinanceTab() {
         </div>
       )}
 
-      {/* Empty state for watchlist */}
-      {watchlist.length === 0 && (
+      {/* Empty state - shows when current filter has no data */}
+      {!showMetals && !showCNStock && !showUSStock && !showCrypto && filteredWatchlist.length === 0 && (
         <div className="finance-tab__empty">
           <p>{financeT?.emptyHint ?? (locale === 'zh' ? '点击 🔍 搜索并添加关注资产' : 'Click 🔍 to search and watch assets')}</p>
         </div>

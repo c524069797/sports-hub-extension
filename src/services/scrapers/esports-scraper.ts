@@ -87,34 +87,96 @@ function getGameDisplayName(game: EsportsGame): string {
 // 根据市场状态和时间判断比赛状态
 function determineMatchStatus(event: GammaEvent): Match['status'] {
   const markets = event.markets ?? []
-  const hasActiveMarket = markets.some((m) => m.active && !m.closed)
   const allClosed = markets.length > 0 && markets.every((m) => m.closed)
 
+  // 所有市场关闭 → 比赛已结束
   if (allClosed) {
     return 'finished'
   }
 
   const now = new Date()
   const startDate = event.startDate ? new Date(event.startDate) : null
+  const endDate = event.endDate ? new Date(event.endDate) : null
+
+  // 如果有结束时间且已过去 → 已结束
+  if (endDate && endDate.getTime() < now.getTime()) {
+    return 'finished'
+  }
 
   if (startDate) {
     const hoursElapsed = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60)
 
-    // 电竞比赛一般不超过 8 小时（即使 BO5）
-    // 如果开始时间已超过 8 小时，判定为已结束
-    if (hoursElapsed > 8) {
+    // 电竞比赛一般不超过 6 小时（即使 BO5）
+    if (hoursElapsed > 6) {
       return 'finished'
     }
 
-    if (hasActiveMarket) {
-      if (startDate <= now) {
-        return 'live'
-      }
-      return 'upcoming'
+    // 比赛已开始但还在时间范围内 → 进行中
+    if (hoursElapsed > 0) {
+      return 'live'
     }
+
+    // 还没到开始时间 → 即将开始
+    return 'upcoming'
   }
 
   return 'upcoming'
+}
+
+// 从 Polymarket 市场结算数据推断比分
+// 当市场关闭时，outcomePrices 接近 1.0 的是赢家，接近 0.0 的是输家
+function inferScoresFromMarkets(
+  event: GammaEvent,
+  homeTeam: string,
+  awayTeam: string,
+  bestOf: string,
+): { homeScore?: number; awayScore?: number } {
+  const markets = event.markets ?? []
+  if (markets.length === 0) return {}
+
+  // 找到已关闭的系列赛胜负市场（通常 question 包含 "win" 或 "vs"）
+  const closedMarket = markets.find((m) => m.closed)
+  if (!closedMarket) return {}
+
+  try {
+    const prices: number[] = JSON.parse(closedMarket.outcomePrices)
+    const outcomes: string[] = JSON.parse(closedMarket.outcomes)
+
+    if (prices.length < 2 || outcomes.length < 2) return {}
+
+    // 找到价格最高的 outcome（赢家）
+    const winnerIndex = prices[0] > prices[1] ? 0 : 1
+    const winnerName = outcomes[winnerIndex].toLowerCase()
+
+    const homeWon = winnerName.includes(homeTeam.toLowerCase()) ||
+      homeTeam.toLowerCase().includes(winnerName.split(' ')[0])
+    const awayWon = winnerName.includes(awayTeam.toLowerCase()) ||
+      awayTeam.toLowerCase().includes(winnerName.split(' ')[0])
+
+    // 根据 BO 格式推断最低胜场
+    const boNum = bestOf ? parseInt(bestOf.replace('BO', ''), 10) : 0
+    const winsNeeded = boNum > 0 ? Math.ceil(boNum / 2) : 2 // 默认 BO3
+
+    if (homeWon && !awayWon) {
+      return { homeScore: winsNeeded, awayScore: winsNeeded - 1 }
+    }
+    if (awayWon && !homeWon) {
+      return { homeScore: winsNeeded - 1, awayScore: winsNeeded }
+    }
+
+    // 如果不确定谁赢了，用价格比判断
+    if (prices[winnerIndex] > 0.8) {
+      // 高置信度：outcomes[0] 通常是 homeTeam
+      if (winnerIndex === 0) {
+        return { homeScore: winsNeeded, awayScore: winsNeeded - 1 }
+      }
+      return { homeScore: winsNeeded - 1, awayScore: winsNeeded }
+    }
+  } catch {
+    // JSON 解析失败
+  }
+
+  return {}
 }
 
 // 从 Polymarket Gamma API 获取电竞比赛
@@ -177,15 +239,20 @@ async function scrapeFromPolymarket(gameFilter: EsportsGame | 'all'): Promise<Ma
       const boMatch = event.title.match(/\(BO(\d+)\)/i)
       const bestOf = boMatch ? `BO${boMatch[1]}` : ''
 
+      // 对已结束的比赛，尝试从市场数据推断比分
+      const inferredScores = status === 'finished'
+        ? inferScoresFromMarkets(event, teams.homeTeam, teams.awayTeam, bestOf)
+        : {}
+
       matches.push({
         id: `esports-poly-${event.id}`,
         sportType: 'esports' as const,
         homeTeam: teams.homeTeam,
         awayTeam: teams.awayTeam,
-        homeScore: undefined,
-        awayScore: undefined,
+        homeScore: inferredScores.homeScore,
+        awayScore: inferredScores.awayScore,
         status,
-        startTime: event.startDate || event.endDate,
+        startTime: event.endDate || event.startDate,
         league,
         extra: {
           game,
@@ -199,7 +266,7 @@ async function scrapeFromPolymarket(gameFilter: EsportsGame | 'all'): Promise<Ma
     }
 
     // 球员数据由 MatchDetail 组件按需加载
-    return matches.slice(0, 20)
+    return matches.slice(0, 30)
   } catch (error) {
     console.error('Polymarket scraping failed:', error)
     return []
