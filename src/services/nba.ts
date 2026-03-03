@@ -1,8 +1,6 @@
 import type { Match, PlayerStat } from '../types'
 
-// NBA 数据来源：cdn.nba.com 公开 scoreboard API（无需认证）
-const NBA_SCOREBOARD_URL =
-  'https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json'
+// NBA 数据来源：ESPN 公开 API（无需认证）
 
 interface NbaApiGame {
   gameId: string
@@ -20,17 +18,6 @@ interface NbaApiGame {
     teamName: string
     teamTricode: string
     score: number
-  }
-  gameLeaders?: {
-    homeLeaders?: { name: string; points: number; rebounds: number; assists: number }
-    awayLeaders?: { name: string; points: number; rebounds: number; assists: number }
-  }
-}
-
-interface NbaApiResponse {
-  scoreboard: {
-    games: NbaApiGame[]
-    gameDate: string
   }
 }
 
@@ -70,52 +57,74 @@ function getTeamCnName(engName: string): string {
   return NBA_TEAM_CN[engName] ?? engName
 }
 
-// 获取比赛的详细球员数据
+// 获取比赛的详细球员数据（使用 ESPN summary API）
 async function fetchGameBoxscore(gameId: string): Promise<{ homePlayers: PlayerStat[]; awayPlayers: PlayerStat[] } | null> {
   try {
-    const boxscoreUrl = `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${gameId}.json`
-    const response = await fetch(boxscoreUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'Referer': 'https://www.nba.com/',
-        'Origin': 'https://www.nba.com',
-      },
+    const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`
+    const response = await fetch(summaryUrl, {
+      headers: { 'Accept': 'application/json' },
     })
 
     if (!response.ok) return null
 
     const data = await response.json()
-    const game = data.game
+    const boxscore = data.boxscore
 
-    if (!game?.homeTeam?.players || !game?.awayTeam?.players) return null
+    if (!boxscore?.players || boxscore.players.length < 2) return null
 
-    const parsePlayer = (p: any, teamName: string): PlayerStat | null => {
-      if (!p.played || p.statistics.minutes === 'PT00M00.00S') return null
+    // ESPN boxscore labels: ['MIN', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'TO', 'STL', 'BLK', ...]
+    const parseTeamPlayers = (teamData: any): PlayerStat[] => {
+      const teamName = teamData.team?.displayName ?? ''
+      const statGroup = teamData.statistics?.[0]
+      if (!statGroup?.athletes) return []
 
-      const stats = p.statistics
-      return {
-        id: p.personId,
-        name: `${p.firstName} ${p.familyName}`,
-        team: teamName,
-        position: p.position || 'N/A',
-        stats: {
-          得分: stats.points,
-          篮板: stats.reboundsTotal,
-          助攻: stats.assists,
-          抢断: stats.steals,
-          盖帽: stats.blocks,
-          时间: stats.minutes.replace('PT', '').replace('M', ':').replace('.00S', ''),
-        },
+      const labels: string[] = statGroup.labels ?? []
+      const idxMIN = labels.indexOf('MIN')
+      const idxPTS = labels.indexOf('PTS')
+      const idxREB = labels.indexOf('REB')
+      const idxAST = labels.indexOf('AST')
+      const idxSTL = labels.indexOf('STL')
+      const idxBLK = labels.indexOf('BLK')
+
+      return statGroup.athletes
+        .filter((ath: any) => !ath.didNotPlay && ath.stats?.[idxMIN] !== '0')
+        .map((ath: any): PlayerStat => {
+          const a = ath.athlete
+          const s = ath.stats ?? []
+          return {
+            id: String(a.id),
+            name: a.displayName ?? a.shortName ?? '',
+            team: teamName,
+            position: a.position?.abbreviation ?? 'N/A',
+            stats: {
+              得分: parseInt(s[idxPTS], 10) || 0,
+              篮板: parseInt(s[idxREB], 10) || 0,
+              助攻: parseInt(s[idxAST], 10) || 0,
+              抢断: parseInt(s[idxSTL], 10) || 0,
+              盖帽: parseInt(s[idxBLK], 10) || 0,
+              时间: s[idxMIN] ?? '0',
+            },
+          }
+        })
+    }
+
+    // ESPN boxscore.players 顺序不固定，需要判断 homeAway
+    // 但 summary API 的 players 可能没有 homeAway 标记，通常第一个是客队，第二个是主队
+    // 通过 header.competitions 来确认
+    let homeIdx = 1
+    let awayIdx = 0
+    const header = data.header
+    if (header?.competitions?.[0]?.competitors) {
+      const competitors = header.competitions[0].competitors
+      const homeTeamId = competitors.find((c: any) => c.homeAway === 'home')?.team?.id
+      if (homeTeamId && String(boxscore.players[0]?.team?.id) === String(homeTeamId)) {
+        homeIdx = 0
+        awayIdx = 1
       }
     }
 
-    const homePlayers = game.homeTeam.players
-      .map((p: any) => parsePlayer(p, game.homeTeam.teamName))
-      .filter((p: PlayerStat | null): p is PlayerStat => p !== null)
-
-    const awayPlayers = game.awayTeam.players
-      .map((p: any) => parsePlayer(p, game.awayTeam.teamName))
-      .filter((p: PlayerStat | null): p is PlayerStat => p !== null)
+    const homePlayers = parseTeamPlayers(boxscore.players[homeIdx])
+    const awayPlayers = parseTeamPlayers(boxscore.players[awayIdx])
 
     return { homePlayers, awayPlayers }
   } catch (error) {
@@ -136,7 +145,12 @@ async function fetchNBAScoreboardByDate(dateStr: string): Promise<NbaApiGame[]> 
         id: string
         date: string
         competitions: Array<{
-          status: { type: { completed: boolean }; displayClock?: string }
+          status: {
+            clock: number
+            displayClock: string
+            period: number
+            type: { state: string; completed: boolean; description: string; detail: string; shortDetail: string }
+          }
           competitors: Array<{
             homeAway: 'home' | 'away'
             score: string
@@ -146,21 +160,37 @@ async function fetchNBAScoreboardByDate(dateStr: string): Promise<NbaApiGame[]> 
       }>
     }
 
-    // 将 ESPN 数据转换为 NbaApiGame 格式以复用 parseNbaGames
     return (data.events ?? []).map((event) => {
       const comp = event.competitions[0]
       const home = comp.competitors.find((c) => c.homeAway === 'home')
       const away = comp.competitors.find((c) => c.homeAway === 'away')
       if (!home || !away) return null
 
-      const completed = comp.status.type.completed
+      const state = comp.status.type.state // 'pre' | 'in' | 'post'
       const homeScore = parseInt(home.score, 10) || 0
       const awayScore = parseInt(away.score, 10) || 0
 
+      // 映射 ESPN state → NbaApiGame gameStatus
+      let gameStatus: number
+      let gameStatusText: string
+      if (state === 'in') {
+        gameStatus = 2 // live
+        // 生成如 "Q3 5:32" 的状态文本
+        const period = comp.status.period
+        const clock = comp.status.displayClock
+        gameStatusText = `Q${period} ${clock}`
+      } else if (state === 'post') {
+        gameStatus = 3 // finished
+        gameStatusText = comp.status.type.shortDetail || 'Final'
+      } else {
+        gameStatus = 1 // upcoming
+        gameStatusText = ''
+      }
+
       return {
-        gameId: `espn-${event.id}`,
-        gameStatusText: completed ? 'Final' : '',
-        gameStatus: completed ? 3 : 1,
+        gameId: event.id, // ESPN 原生 ID（纯数字），用于查询 summary API
+        gameStatusText,
+        gameStatus,
         gameTimeUTC: event.date,
         homeTeam: {
           teamId: NBA_TEAM_IDS[home.team.abbreviation] ?? parseInt(home.team.id, 10),
@@ -192,18 +222,6 @@ async function parseNbaGames(games: NbaApiGame[], gameDate?: string): Promise<Ma
   return Promise.all(
     games.map(async (game) => {
       const extra: Record<string, string> = {}
-      if (game.gameLeaders?.homeLeaders) {
-        const l = game.gameLeaders.homeLeaders
-        extra.homeLeaderName = l.name
-        extra.homeLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
-        extra.homeLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
-      }
-      if (game.gameLeaders?.awayLeaders) {
-        const l = game.gameLeaders.awayLeaders
-        extra.awayLeaderName = l.name
-        extra.awayLeaderStats = `${l.points}分 ${l.rebounds}板 ${l.assists}助`
-        extra.awayLeader = `${l.name} ${l.points}分 ${l.rebounds}板 ${l.assists}助`
-      }
       extra.statusText = game.gameStatusText
       if (gameDate) {
         extra.gameDate = gameDate
